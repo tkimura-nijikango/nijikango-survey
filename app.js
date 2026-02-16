@@ -7,7 +7,7 @@
 // 設定
 // ===============================
 const CONFIG = {
-    // GAS API URL（本番環境で設定）
+    // GAS API URL
     API_URL: 'https://script.google.com/macros/s/AKfycbwT4dlPuH3edMjF5aWRV_TgAzU0Rz7YS76Zb-H0Dv3G02ph0DR1KY006ldArCJZngFs/exec',
     // デバッグモード
     DEBUG: true,
@@ -25,6 +25,7 @@ class SurveyState {
         this.currentQuestionIndex = 0;
         this.answers = {};
         this.lineId = this.getLineIdFromUrl();
+        this.resolvedAddress = ''; // 郵便番号→住所変換結果
     }
 
     getLineIdFromUrl() {
@@ -61,29 +62,36 @@ class SurveyState {
         };
     }
 
+    /**
+     * 送信データを「ユーザー管理」シートのヘッダーに直接対応する形式で生成
+     */
     prepareSubmissionData() {
         const data = {
             lineId: this.lineId,
-            answers: {
-                tag: window.inflowTag || 'general',
-                timing: this.answers.timing,
-                location: this.answers.location,
-                categories: this.answers.categories || [],
-                keywords: this.answers.keywords || [],
-                workStyle: this.answers.workStyle || [],
-                salary: this.answers.salary,
-                education: this.answers.education,
-                birthday: this.answers.birthday,
-                name: this.answers.name,
-                phone: this.answers.phone
-            }
+            answers: {}
         };
 
-        // foreigner タグの場合のみ追加
-        if (window.inflowTag === 'foreigner') {
-            data.answers.jlptLevel = this.answers.jlptLevel;
-            data.answers.visaStatus = this.answers.visaStatus;
+        // 各質問のsaveAsキーを使って、ヘッダー名→回答値のマッピングを作成
+        QUESTIONS.forEach(q => {
+            const answer = this.answers[q.id];
+            if (answer !== undefined && answer !== null) {
+                // 配列の場合はカンマ区切りに
+                if (Array.isArray(answer)) {
+                    data.answers[q.saveAs] = answer.join('、');
+                } else {
+                    data.answers[q.saveAs] = answer;
+                }
+            }
+        });
+
+        // 郵便番号→住所の自動補完
+        if (this.resolvedAddress) {
+            data.answers['住所'] = this.resolvedAddress;
+            data.answers['希望勤務地'] = this.resolvedAddress;
         }
+
+        // 流入経路タグ
+        data.answers['流入経路'] = 'LINE';
 
         return data;
     }
@@ -101,7 +109,7 @@ class UIComponents {
         <img src="aichan.jpg" alt="" class="chat-bubble__avatar-img">
       </div>
       <div class="chat-bubble__content">
-        <span class="chat-bubble__name">キャリアアドバイザーあい</span>
+        <span class="chat-bubble__name">ニジ看護アドバイザー</span>
         <div class="chat-bubble__message">${message.replace(/\n/g, '<br>')}</div>
       </div>
     `;
@@ -178,7 +186,6 @@ class UIComponents {
         grid.className = 'prefecture-grid';
         grid.id = 'prefectureGrid';
 
-        // 初期表示は関東
         PREFECTURES['関東'].forEach(pref => {
             const btn = document.createElement('button');
             btn.className = 'option-btn';
@@ -197,7 +204,7 @@ class UIComponents {
         container.className = 'input-group';
 
         const currentYear = new Date().getFullYear();
-        const minYear = currentYear - 60;
+        const minYear = currentYear - 65;
         const maxYear = currentYear - 18;
 
         let yearOptions = '<option value="">年</option>';
@@ -250,6 +257,25 @@ class UIComponents {
         return container;
     }
 
+    static createPostalCodeInput(placeholder) {
+        const container = document.createElement('div');
+        container.className = 'input-group';
+
+        container.innerHTML = `
+      <input type="tel" class="input-field" id="textInput" placeholder="${placeholder}" 
+             pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="7">
+      <div class="input-error hidden" id="inputError"></div>
+      <div class="postal-result hidden" id="postalResult" style="margin-top:8px; padding:10px; background:#f0f8f0; border-radius:8px; font-size:0.9rem; color:#333;">
+        📍 <span id="postalAddress"></span>
+      </div>
+      <div class="action-buttons">
+        <button class="btn btn--primary" id="nextBtn" disabled>次へ</button>
+      </div>
+    `;
+
+        return container;
+    }
+
     static createTelInput(placeholder) {
         const container = document.createElement('div');
         container.className = 'input-group';
@@ -296,15 +322,17 @@ class SurveyApp {
 
     updateLiveCounter() {
         const counter = document.getElementById('liveCount');
-        const baseCount = 47;
-        const variation = Math.floor(Math.random() * 10) - 5;
-        counter.textContent = baseCount + variation;
+        if (counter) {
+            const baseCount = 32;
+            const variation = Math.floor(Math.random() * 10) - 5;
+            counter.textContent = baseCount + variation;
+        }
     }
 
     updateProgress() {
         const { current, total, percentage } = this.state.getProgress();
         this.progressFill.style.width = `${percentage}%`;
-        this.progressText.innerHTML = `<span class="progress-number">${current}</span>/10`;
+        this.progressText.innerHTML = `<span class="progress-number">${current}</span>/${total}`;
     }
 
     showQuestion() {
@@ -334,27 +362,35 @@ class SurveyApp {
     showInputUI(question) {
         let inputElement;
         this.selectedOptions = [];
+        this._autoAdvanced = false;
 
         switch (question.type) {
             case 'single':
                 inputElement = UIComponents.createOptionsGrid(question.options, 'single');
                 this.chatArea.appendChild(inputElement);
-                this.setupSingleSelect(question);
+                this.setupSingleSelect(question, inputElement);
                 break;
 
             case 'multiple':
                 inputElement = UIComponents.createOptionsGrid(question.options, 'multiple', question.maxSelect);
                 this.chatArea.appendChild(inputElement);
-                this.setupMultipleSelect(question);
+                this.setupMultipleSelect(question, inputElement);
                 break;
 
-            case 'multiple-dynamic':
-                const categories = this.state.getAnswer('categories') || [];
+            case 'multiple-dynamic': {
+                const categories = this.state.getAnswer('facilities') || [];
                 const options = categories.flatMap(cat => JOB_CATEGORIES[cat] || []);
-                inputElement = UIComponents.createOptionsGrid(options, 'multiple-dynamic', question.maxSelect);
+                const uniqueOptions = [...new Set(options)];
+                if (uniqueOptions.length === 0) {
+                    // フォールバック: 全カテゴリの職種を表示
+                    const allOptions = Object.values(JOB_CATEGORIES).flat();
+                    uniqueOptions.push(...[...new Set(allOptions)]);
+                }
+                inputElement = UIComponents.createOptionsGrid(uniqueOptions, 'multiple-dynamic', question.maxSelect);
                 this.chatArea.appendChild(inputElement);
-                this.setupMultipleSelect(question);
+                this.setupMultipleSelect(question, inputElement);
                 break;
+            }
 
             case 'prefecture':
                 inputElement = UIComponents.createPrefectureSelector();
@@ -374,6 +410,12 @@ class SurveyApp {
                 this.setupTextInput(question);
                 break;
 
+            case 'postalCode':
+                inputElement = UIComponents.createPostalCodeInput(question.placeholder);
+                this.chatArea.appendChild(inputElement);
+                this.setupPostalCodeInput(question);
+                break;
+
             case 'tel':
                 inputElement = UIComponents.createTelInput(question.placeholder);
                 this.chatArea.appendChild(inputElement);
@@ -382,8 +424,8 @@ class SurveyApp {
         }
     }
 
-    setupSingleSelect(question) {
-        const buttons = this.chatArea.querySelectorAll('.option-btn');
+    setupSingleSelect(question, container) {
+        const buttons = container.querySelectorAll('.option-btn');
         buttons.forEach(btn => {
             btn.addEventListener('click', () => {
                 const value = btn.dataset.value;
@@ -396,40 +438,42 @@ class SurveyApp {
                 setTimeout(() => {
                     this.addUserResponse(value);
                     this.removeInputUI();
-                    this.advanceToNext();
+
+                    // isLast の場合は送信してから完了画面へ
+                    if (question.isLast) {
+                        this.submitForm();
+                    } else {
+                        this.advanceToNext();
+                    }
                 }, 150);
             });
         });
     }
 
-    setupMultipleSelect(question) {
-        const buttons = this.chatArea.querySelectorAll('.option-btn');
-        const counter = this.chatArea.querySelector('.selection-counter__current');
-        const confirmBtn = document.getElementById('confirmBtn');
+    setupMultipleSelect(question, container) {
+        const buttons = container.querySelectorAll('.option-btn');
+        const counter = container.querySelector('.selection-counter__current');
+        const confirmBtn = container.querySelector('#confirmBtn');
 
         buttons.forEach(btn => {
             btn.addEventListener('click', () => {
+                if (this._autoAdvanced) return;
                 const value = btn.dataset.value;
                 const index = this.selectedOptions.indexOf(value);
 
                 if (index > -1) {
-                    // 選択解除
                     this.selectedOptions.splice(index, 1);
                     btn.classList.remove('option-btn--selected');
                 } else if (this.selectedOptions.length < question.maxSelect) {
-                    // 選択
                     this.selectedOptions.push(value);
                     btn.classList.add('option-btn--selected');
                 }
 
-                // カウンター更新
                 counter.textContent = this.selectedOptions.length;
-
-                // 決定ボタンの有効化
                 confirmBtn.disabled = this.selectedOptions.length === 0;
 
-                // 最大数選択で自動進行（autoAdvanceがtrueの場合）
-                if (question.autoAdvance && this.selectedOptions.length === question.maxSelect) {
+                if (question.autoAdvance && this.selectedOptions.length === question.maxSelect && !this._autoAdvanced) {
+                    this._autoAdvanced = true;
                     setTimeout(() => {
                         this.confirmMultipleSelection(question);
                     }, 300);
@@ -437,8 +481,9 @@ class SurveyApp {
             });
         });
 
-        // 決定ボタン
         confirmBtn.addEventListener('click', () => {
+            if (this._autoAdvanced) return;
+            this._autoAdvanced = true;
             this.confirmMultipleSelection(question);
         });
     }
@@ -458,14 +503,11 @@ class SurveyApp {
         const tabs = this.chatArea.querySelectorAll('.region-tab');
         const grid = document.getElementById('prefectureGrid');
 
-        // タブ切り替え
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
-                // アクティブ状態を更新
                 tabs.forEach(t => t.classList.remove('region-tab--active'));
                 tab.classList.add('region-tab--active');
 
-                // グリッドを更新
                 const region = tab.dataset.region;
                 grid.innerHTML = '';
                 PREFECTURES[region].forEach(pref => {
@@ -476,12 +518,10 @@ class SurveyApp {
                     grid.appendChild(btn);
                 });
 
-                // 新しいボタンにイベントを設定
                 this.setupPrefectureButtons(question);
             });
         });
 
-        // 初期ボタンにイベント設定
         this.setupPrefectureButtons(question);
     }
 
@@ -552,7 +592,6 @@ class SurveyApp {
             }
         });
 
-        // Enterキーで送信
         input.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !nextBtn.disabled) {
                 nextBtn.click();
@@ -567,8 +606,88 @@ class SurveyApp {
             this.advanceToNext();
         });
 
-        // フォーカス
         input.focus();
+    }
+
+    /**
+     * 郵便番号入力のセットアップ（zipcloud APIで住所自動取得）
+     */
+    setupPostalCodeInput(question) {
+        const input = document.getElementById('textInput');
+        const nextBtn = document.getElementById('nextBtn');
+        const errorEl = document.getElementById('inputError');
+        const postalResult = document.getElementById('postalResult');
+        const postalAddress = document.getElementById('postalAddress');
+
+        // 数字のみ入力
+        input.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+
+            const value = input.value.trim();
+            const isValid = this.validateInput(value, question.validation);
+            nextBtn.disabled = !isValid;
+
+            if (value && !isValid) {
+                errorEl.textContent = question.validation.errorMessage;
+                errorEl.classList.remove('hidden');
+                input.classList.add('input-field--error');
+                postalResult.classList.add('hidden');
+            } else {
+                errorEl.classList.add('hidden');
+                input.classList.remove('input-field--error');
+            }
+
+            // 7桁入力されたら住所を自動取得
+            if (value.length === 7) {
+                this.lookupPostalCode(value, postalResult, postalAddress);
+            } else {
+                postalResult.classList.add('hidden');
+            }
+        });
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !nextBtn.disabled) {
+                nextBtn.click();
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            const value = input.value.trim();
+            this.state.setAnswer(question.id, value);
+
+            const displayText = this.state.resolvedAddress
+                ? `〒${value}（${this.state.resolvedAddress}）`
+                : `〒${value}`;
+            this.addUserResponse(displayText);
+            this.removeInputUI();
+            this.advanceToNext();
+        });
+
+        input.focus();
+    }
+
+    /**
+     * zipcloud APIで郵便番号→住所変換
+     */
+    async lookupPostalCode(code, resultEl, addressEl) {
+        try {
+            const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${code}`);
+            const data = await res.json();
+
+            if (data.results && data.results.length > 0) {
+                const r = data.results[0];
+                const address = `${r.address1}${r.address2}${r.address3}`;
+                this.state.resolvedAddress = address;
+                addressEl.textContent = address;
+                resultEl.classList.remove('hidden');
+            } else {
+                this.state.resolvedAddress = '';
+                resultEl.classList.add('hidden');
+            }
+        } catch (e) {
+            console.error('Postal code lookup failed:', e);
+            this.state.resolvedAddress = '';
+        }
     }
 
     setupTelInput(question) {
@@ -596,7 +715,6 @@ class SurveyApp {
             }
         });
 
-        // Enterキーで送信
         input.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !submitBtn.disabled) {
                 submitBtn.click();
@@ -620,7 +738,6 @@ class SurveyApp {
             await this.submitForm();
         });
 
-        // フォーカス
         input.focus();
     }
 
@@ -665,8 +782,7 @@ class SurveyApp {
         // ローディングオーバーレイを表示
         loadingOverlay.classList.remove('hidden');
 
-        // GASへ送信（非同期で投げっぱなしにする）
-        // awaitしないことで、レスポンス待ちによる待機時間を排除
+        // GASへ送信（非同期で投げっぱなし）
         fetch(CONFIG.API_URL, {
             method: 'POST',
             mode: 'no-cors',
@@ -674,18 +790,18 @@ class SurveyApp {
             body: JSON.stringify(data)
         }).catch(e => console.error('Background submission error:', e));
 
-        // ユーザー体験のために少しだけ待機時間を演出 (0.5～1.0秒)
-        // その後すぐに完了画面へ遷移
+        // 完了画面へ遷移
         setTimeout(() => {
             loadingOverlay.classList.add('hidden');
             this.showComplete();
-        }, 800); // 0.8秒待機
+        }, 800);
     }
 
     showComplete() {
         // 進捗を100%に
+        const total = QUESTIONS.length;
         this.progressFill.style.width = '100%';
-        this.progressText.innerHTML = '<span class="progress-number">10</span>/10';
+        this.progressText.innerHTML = `<span class="progress-number">${total}</span>/${total}`;
 
         // チャットエリアを非表示
         this.chatArea.classList.add('hidden');
@@ -697,18 +813,12 @@ class SurveyApp {
         window.scrollTo(0, 0);
 
         // 3秒後に自動クローズ
-        // LINE LIFF環境であれば liff.closeWindow() を呼ぶ想定だが、
-        // Webブラウザの場合はタブを閉じるか、終了メッセージを表示する
         setTimeout(() => {
             try {
-                // LIFF SDKがロードされていれば閉じる
                 if (window.liff) {
                     window.liff.closeWindow();
                 } else {
-                    // 通常ブラウザの場合
                     window.close();
-                    // 閉じられない場合のメッセージ
-                    document.querySelector('.complete-message').innerHTML += '<p style="font-size:12px; color:#888; margin-top:20px;">画面を閉じてLINEにお戻りください</p>';
                 }
             } catch (e) {
                 console.log('Close window failed', e);
