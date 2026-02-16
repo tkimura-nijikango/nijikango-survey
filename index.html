@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="format-detection" content="telephone=no">
+  <title>ニジ看護 - あなたに合う求人を見つけよう</title>
+  <meta name="description" content="簡単な質問に答えるだけで、あなたにぴったりの求人をご提案します。約1分で完了！">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="icon.jpg">
+
+  <!-- Preconnect -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css">
+
+  <style>
+    body {
+      font-family: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-container" id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header__logo">
+        <img src="logo.png" alt="ニジ看護" class="header__logo-img">
+      </div>
+    </header>
+
+    <!-- Stats Section -->
+    <section class="stats-section">
+      <div class="stats-card">
+        <p class="stats-card__title">登録から内定後まで完全無料でサポート</p>
+        <div class="stats-card__items">
+          <div class="stats-item">
+            <span class="stats-item__icon">📈</span>
+            <span>未経験職種へのチャレンジ可能！</span>
+          </div>
+          <div class="stats-item">
+            <span class="stats-item__icon">⚡</span>
+            <span>内定まで最短 <span class="stats-item__value">2日</span> ・平均26日</span>
+          </div>
+          <div class="stats-item">
+            <span class="stats-item__icon">🚀</span>
+            <span>このアンケートに回答後 <span class="stats-item__value">3秒</span> で求人提案！</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Live Counter -->
+    <div class="live-counter">
+      <span class="live-counter__dot"></span>
+      <span class="live-counter__text">
+        現在 <span class="live-counter__number" id="liveCount">47</span> 人が転職活動中です！
+      </span>
+    </div>
+
+    <!-- Progress Section -->
+    <section class="progress-section">
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div class="progress-bar__fill" id="progressFill" style="width: 0%"></div>
+        </div>
+        <span class="progress-text" id="progressText"><span class="progress-number">0</span>/10</span>
+      </div>
+    </section>
+
+    <!-- Chat Area -->
+    <main class="chat-area" id="chatArea">
+      <!-- Chat bubbles will be dynamically inserted here -->
+    </main>
+
+    <!-- Complete Screen (hidden initially) -->
+    <div class="complete-screen hidden" id="completeScreen">
+      <div class="complete-screen__icon">🎉</div>
+      <h2 class="complete-screen__title">回答ありがとうございます！</h2>
+      <p class="complete-screen__message">
+        この情報を元にまずは<br>
+        <strong>3つの求人を今すぐお送り</strong>するので<br><br>
+        <span class="complete-screen__highlight">LINEのトーク画面</span>で<br>
+        お待ちください！
+      </p>
+    </div>
+
+    <!-- Loading Overlay (hidden initially) -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+      <div class="loading-overlay__content">
+        <div class="loading-overlay__spinner"></div>
+        <p class="loading-overlay__text">
+          送信中<span class="loading-dots"><span>.</span><span>.</span><span>.</span></span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIFF SDK -->
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <!-- LIFF Auto Message Script -->
+  <script>
+    // LIFF初期化してアンケート開始メッセージを自動送信
+    (async function () {
+      const LIFF_ID = '2008950156-cJcXpi6V'; // ニジ看護のLIFF ID（アンケート用）
+
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        console.log('LIFF initialized');
+
+        // LIFFブラウザ内で実行されている場合のみメッセージ送信
+        if (liff.isInClient()) {
+          try {
+            await liff.sendMessages([{
+              type: 'text',
+              text: '自動：アンケート回答中'
+            }]);
+            console.log('Auto message sent: アンケート回答中');
+          } catch (sendError) {
+            console.log('sendMessages failed (expected if already sent):', sendError);
+          }
+        } else {
+          console.log('Not in LIFF browser, skipping auto message');
+        }
+      } catch (e) {
+        console.log('LIFF init failed:', e);
+      }
+    })();
+  </script>
+
+  <!-- Scripts -->
+  <script src="questions.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>
