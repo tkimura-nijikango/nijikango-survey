@@ -33,7 +33,7 @@ const PREFECTURES = {
 };
 
 // ===============================
-// 看護師向け質問フロー（10問）
+// 看護師向け質問フロー（9問）
 // ===============================
 const QUESTIONS = [
     // Q1: 保有資格 → ヘッダー「資格」
@@ -69,27 +69,17 @@ const QUESTIONS = [
         autoAdvance: true,
         saveAs: '転職希望時期'
     },
-    // Q4: 希望施設形態 → ヘッダー「希望職種（大枠）」
+    // Q4: 希望施設形態 → ヘッダー「希望職種（大枠）」（上限なし・複数選択）
     {
         id: 'facilities',
         type: 'multiple',
-        message: '希望の施設形態を教えてください！🏥\n（最大2つまで選択できます）',
+        message: '希望の施設形態を教えてください！🏥\n（いくつでも選択できます）',
         options: Object.keys(NURSING_FACILITIES),
-        maxSelect: 2,
-        autoAdvance: true,
+        maxSelect: 99,
+        autoAdvance: false,
         saveAs: '希望職種（大枠）'
     },
-    // Q5: 希望職種（施設連動） → ヘッダー「希望職種（キーワード）」
-    {
-        id: 'jobTypes',
-        type: 'multiple-dynamic',
-        message: '希望の職種を選んでください！👩‍⚕️\n（最大3つまで選択できます）',
-        dependsOn: 'facilities',
-        maxSelect: 3,
-        autoAdvance: true,
-        saveAs: '希望職種（キーワード）'
-    },
-    // Q6: 住まいの郵便番号 → ヘッダー「郵便番号」(+ 住所自動取得 → 「住所」「希望勤務地」)
+    // Q5: 住まいの郵便番号 → ヘッダー「郵便番号」(+ 住所自動取得 → 「住所」「希望勤務地」)
     {
         id: 'postalCode',
         type: 'postalCode',
