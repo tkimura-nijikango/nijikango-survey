@@ -107,18 +107,38 @@
   <!-- LIFF SDK -->
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
-  <!-- LIFF Auto Message Script -->
+  <!-- LIFF初期化 + プロフィール取得 + 自動メッセージ -->
   <script>
-    // LIFF初期化してアンケート開始メッセージを自動送信
-    (async function () {
-      const LIFF_ID = '2008950156-cJcXpi6V'; // ニジ看護のLIFF ID（アンケート用）
+    window.__liffReady = (async function () {
+      const LIFF_ID = '2009139815-KlyH45dv';
 
       try {
         await liff.init({ liffId: LIFF_ID });
         console.log('LIFF initialized');
 
-        // LIFFブラウザ内で実行されている場合のみメッセージ送信
         if (liff.isInClient()) {
+          // ユーザーID取得（IDトークン優先、フォールバックでgetProfile）
+          try {
+            const idToken = liff.getDecodedIDToken();
+            if (idToken && idToken.sub) {
+              window.__liffUserId = idToken.sub;
+              console.log('User ID from ID Token:', idToken.sub);
+            }
+          } catch (e) {
+            console.log('getDecodedIDToken failed:', e);
+          }
+
+          if (!window.__liffUserId) {
+            try {
+              const profile = await liff.getProfile();
+              window.__liffUserId = profile.userId;
+              console.log('User ID from getProfile:', profile.userId);
+            } catch (e) {
+              console.log('getProfile failed:', e);
+            }
+          }
+
+          // 「アンケート回答中」メッセージを自動送信
           try {
             await liff.sendMessages([{
               type: 'text',

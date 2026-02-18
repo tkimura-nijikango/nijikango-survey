@@ -26,9 +26,17 @@ class SurveyState {
         this.answers = {};
         this.lineId = this.getLineIdFromUrl();
         this.resolvedAddress = ''; // 郵便番号→住所変換結果
+        // 流入タグの取得（LIFF URLパラメータから）
+        const urlParams = new URLSearchParams(window.location.search);
+        this.inflowTag = urlParams.get('tag') || 'LINE';
     }
 
     getLineIdFromUrl() {
+        // LIFF経由のuserIdを優先（より安全）
+        if (window.__liffUserId) {
+            return window.__liffUserId;
+        }
+        // フォールバック: URLパラメータ
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get('uid') || 'TEST_USER';
     }
@@ -91,7 +99,7 @@ class SurveyState {
         }
 
         // 流入経路タグ
-        data.answers['流入経路'] = 'LINE';
+        data.answers['流入経路'] = this.inflowTag;
 
         return data;
     }
@@ -449,6 +457,7 @@ class SurveyApp {
             btn.addEventListener('click', () => {
                 const value = btn.dataset.value;
                 this.state.setAnswer(question.id, value);
+                this.sendPartialAnswer(question);
 
                 // 選択状態を表示
                 btn.classList.add('option-btn--selected');
@@ -511,6 +520,7 @@ class SurveyApp {
         if (this.selectedOptions.length === 0) return;
 
         this.state.setAnswer(question.id, [...this.selectedOptions]);
+        this.sendPartialAnswer(question);
 
         const displayValue = this.selectedOptions.join('、');
         this.addUserResponse(displayValue);
@@ -585,6 +595,7 @@ class SurveyApp {
             const displayValue = `${year}年${monthSelect.value}月${daySelect.value}日`;
 
             this.state.setAnswer(question.id, dateValue);
+            this.sendPartialAnswer(question);
             this.addUserResponse(displayValue);
             this.removeInputUI();
             this.advanceToNext();
@@ -620,6 +631,7 @@ class SurveyApp {
         nextBtn.addEventListener('click', () => {
             const value = input.value.trim();
             this.state.setAnswer(question.id, value);
+            this.sendPartialAnswer(question);
             this.addUserResponse(value);
             this.removeInputUI();
             this.advanceToNext();
@@ -673,6 +685,7 @@ class SurveyApp {
         nextBtn.addEventListener('click', () => {
             const value = input.value.trim();
             this.state.setAnswer(question.id, value);
+            this.sendPartialAnswer(question);
 
             const displayText = this.state.resolvedAddress
                 ? `〒${value}（${this.state.resolvedAddress}）`
@@ -741,6 +754,7 @@ class SurveyApp {
         nextBtn.addEventListener('click', () => {
             const value = input.value.trim();
             this.state.setAnswer(question.id, value);
+            this.sendPartialAnswer(question);
             this.addUserResponse(value);
             this.removeInputUI();
             this.advanceToNext();
@@ -778,6 +792,7 @@ class SurveyApp {
         nextBtn.addEventListener('click', () => {
             const value = input.value.trim();
             this.state.setAnswer(question.id, value);
+            this.sendPartialAnswer(question);
             this.addUserResponse(value);
             this.removeInputUI();
             this.advanceToNext();
@@ -842,6 +857,48 @@ class SurveyApp {
         }, 800);
     }
 
+    /**
+     * 1問回答ごとにGASへ部分送信（リアルタイム進捗トラッキング）
+     */
+    sendPartialAnswer(question) {
+        const lineId = this.state.lineId;
+        if (!lineId || lineId === 'TEST_USER') return;
+
+        const step = this.state.currentQuestionIndex + 1;
+        const totalSteps = QUESTIONS.length;
+        const answers = {};
+        const rawAnswer = this.state.getAnswer(question.id);
+
+        if (rawAnswer !== undefined && rawAnswer !== null) {
+            if (Array.isArray(rawAnswer)) {
+                answers[question.saveAs] = rawAnswer.join('、');
+            } else {
+                answers[question.saveAs] = rawAnswer;
+            }
+        }
+
+        // 郵便番号の場合は住所・希望勤務地も同時送信
+        if (question.id === 'postalCode' && this.state.resolvedAddress) {
+            answers['住所'] = this.state.resolvedAddress;
+            answers['希望勤務地'] = this.state.resolvedAddress;
+        }
+
+        const data = {
+            action: 'partial_answer',
+            lineId: lineId,
+            answers: answers,
+            step: step,
+            totalSteps: totalSteps
+        };
+
+        fetch(CONFIG.API_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify(data)
+        }).catch(e => console.error('Partial answer send error:', e));
+    }
+
     showComplete() {
         // 進捗を100%に
         const total = QUESTIONS.length;
@@ -882,6 +939,10 @@ class SurveyApp {
 // ===============================
 // アプリケーション起動
 // ===============================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // LIFF初期化の完了を待つ（userIdの取得を確実にする）
+    if (window.__liffReady) {
+        try { await window.__liffReady; } catch (e) { console.log('LIFF ready wait failed:', e); }
+    }
     window.app = new SurveyApp();
 });
