@@ -109,50 +109,76 @@
 
   <!-- LIFF初期化 + プロフィール取得 + 自動メッセージ -->
   <script>
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwT4dlPuH3edMjF5aWRV_TgAzU0Rz7YS76Zb-H0Dv3G02ph0DR1KY006ldArCJZngFs/exec';
+
     window.__liffReady = (async function () {
       const LIFF_ID = '2009139815-KlyH45dv';
 
       try {
         await liff.init({ liffId: LIFF_ID });
-        console.log('LIFF initialized');
 
-        if (liff.isInClient()) {
+        const inClient = liff.isInClient();
+        let contextType = 'unknown';
+        try { contextType = liff.getContext()?.type || 'none'; } catch (e) {}
+        console.log('[LIFF] init OK | inClient:', inClient, '| context:', contextType);
+
+        if (inClient) {
           // ユーザーID取得（IDトークン優先、フォールバックでgetProfile）
           try {
             const idToken = liff.getDecodedIDToken();
             if (idToken && idToken.sub) {
               window.__liffUserId = idToken.sub;
-              console.log('User ID from ID Token:', idToken.sub);
             }
           } catch (e) {
-            console.log('getDecodedIDToken failed:', e);
+            console.log('[LIFF] getDecodedIDToken failed:', e.message || e);
           }
 
           if (!window.__liffUserId) {
             try {
               const profile = await liff.getProfile();
               window.__liffUserId = profile.userId;
-              console.log('User ID from getProfile:', profile.userId);
             } catch (e) {
-              console.log('getProfile failed:', e);
+              console.log('[LIFF] getProfile failed:', e.message || e);
             }
           }
 
+          console.log('[LIFF] userId:', window.__liffUserId || 'NOT_FOUND');
+
           // 「アンケート回答中」メッセージを自動送信
+          let messageSent = false;
           try {
             await liff.sendMessages([{
               type: 'text',
               text: '自動：アンケート回答中'
             }]);
-            console.log('Auto message sent: アンケート回答中');
+            messageSent = true;
+            console.log('[LIFF] sendMessages OK');
           } catch (sendError) {
-            console.log('sendMessages failed (expected if already sent):', sendError);
+            console.error('[LIFF] sendMessages FAILED:', sendError.code || '', sendError.message || sendError);
+          }
+
+          // sendMessages失敗時 → GAS経由でBOTから通知（フォールバック）
+          if (!messageSent && window.__liffUserId) {
+            try {
+              fetch(GAS_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({
+                  action: 'survey_started',
+                  lineId: window.__liffUserId
+                })
+              });
+              console.log('[LIFF] Fallback: notified GAS survey_started');
+            } catch (e) {
+              console.log('[LIFF] Fallback failed:', e);
+            }
           }
         } else {
-          console.log('Not in LIFF browser, skipping auto message');
+          console.log('[LIFF] Not in LINE client');
         }
       } catch (e) {
-        console.log('LIFF init failed:', e);
+        console.error('[LIFF] init FAILED:', e.code || '', e.message || e);
       }
     })();
   </script>
