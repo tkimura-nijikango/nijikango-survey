@@ -79,7 +79,20 @@ const QUESTIONS = [
         autoAdvance: false,
         saveAs: '希望職種（大枠）'
     },
-    // Q5: 住まいの郵便番号 → ヘッダー「郵便番号」(+ 住所自動取得 → 「住所」「希望勤務地」)
+    // Q5: 希望最低年収 → ヘッダー「希望最低年収」
+    {
+        id: 'salary',
+        type: 'single',
+        message: '希望の最低年収を教えてください！💰',
+        options: [
+            '300万円以上', '400万円以上', '500万円以上',
+            '600万円以上', '700万円以上', '800万円以上',
+            'こだわらない'
+        ],
+        autoAdvance: true,
+        saveAs: '希望最低年収'
+    },
+    // Q6: 住まいの郵便番号 → ヘッダー「郵便番号」(+ 住所自動取得 → 「住所」「希望勤務地」)
     {
         id: 'postalCode',
         type: 'postalCode',
@@ -93,7 +106,7 @@ const QUESTIONS = [
         autoAdvance: false,
         saveAs: '郵便番号'
     },
-    // Q6: お名前 → ヘッダー「本名」
+    // Q7: お名前 → ヘッダー「本名」
     {
         id: 'name',
         type: 'text',
@@ -107,27 +120,13 @@ const QUESTIONS = [
         autoAdvance: false,
         saveAs: '本名'
     },
-    // Q7: 生年月日 → ヘッダー「生年月日」
+    // Q8: 生年月日 → ヘッダー「生年月日」
     {
         id: 'birthday',
         type: 'date',
         message: '生年月日を教えてください！🎂',
         autoAdvance: false,
         saveAs: '生年月日'
-    },
-    // Q8: 携帯電話番号 → ヘッダー「電話番号」
-    {
-        id: 'phone',
-        type: 'tel',
-        message: '携帯電話番号を教えてください📱\n（ハイフンなしで入力）',
-        placeholder: '例：09012345678',
-        validation: {
-            required: true,
-            pattern: /^0[789]0\d{8}$/,
-            errorMessage: '正しい携帯電話番号を入力してください'
-        },
-        autoAdvance: false,
-        saveAs: '電話番号'
     },
     // Q9: メールアドレス → ヘッダー「メール」
     {
@@ -143,19 +142,20 @@ const QUESTIONS = [
         autoAdvance: false,
         saveAs: 'メール'
     },
-    // Q10: 希望最低年収 → ヘッダー「希望最低年収」
+    // Q10: 携帯電話番号 → ヘッダー「電話番号」
     {
-        id: 'salary',
-        type: 'single',
-        message: '最後に、希望の最低年収を教えてください！💰',
-        options: [
-            '300万円以上', '400万円以上', '500万円以上',
-            '600万円以上', '700万円以上', '800万円以上',
-            'こだわらない'
-        ],
-        autoAdvance: true,
+        id: 'phone',
+        type: 'tel',
+        message: '最後に、携帯電話番号を教えてください📱\n（ハイフンなしで入力）',
+        placeholder: '例：09012345678',
+        validation: {
+            required: true,
+            pattern: /^0[789]0\d{8}$/,
+            errorMessage: '正しい携帯電話番号を入力してください'
+        },
+        autoAdvance: false,
         isLast: true,
-        saveAs: '希望最低年収'
+        saveAs: '電話番号'
     }
 ];
 
