@@ -281,14 +281,27 @@ class UIComponents {
         container.className = 'input-group';
 
         container.innerHTML = `
-      <input type="tel" class="input-field" id="textInput" placeholder="${placeholder}" 
+      <input type="tel" class="input-field" id="textInput" placeholder="${placeholder}"
              pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="11">
       <div class="input-error hidden" id="inputError"></div>
       <div class="action-buttons">
-        <button class="submit-btn" id="submitBtn" disabled>
-          <span id="submitBtnText">送信する</span>
-          <span class="loading-spinner hidden" id="submitSpinner"></span>
-        </button>
+        <button class="btn btn--primary" id="nextBtn" disabled>次へ</button>
+      </div>
+    `;
+
+        return container;
+    }
+
+    static createEmailInput(placeholder) {
+        const container = document.createElement('div');
+        container.className = 'input-group';
+
+        container.innerHTML = `
+      <input type="email" class="input-field" id="textInput" placeholder="${placeholder}"
+             inputmode="email" autocomplete="email">
+      <div class="input-error hidden" id="inputError"></div>
+      <div class="action-buttons">
+        <button class="btn btn--primary" id="nextBtn" disabled>次へ</button>
       </div>
     `;
 
@@ -420,6 +433,12 @@ class SurveyApp {
                 inputElement = UIComponents.createTelInput(question.placeholder);
                 this.chatArea.appendChild(inputElement);
                 this.setupTelInput(question);
+                break;
+
+            case 'email':
+                inputElement = UIComponents.createEmailInput(question.placeholder);
+                this.chatArea.appendChild(inputElement);
+                this.setupEmailInput(question);
                 break;
         }
     }
@@ -692,9 +711,7 @@ class SurveyApp {
 
     setupTelInput(question) {
         const input = document.getElementById('textInput');
-        const submitBtn = document.getElementById('submitBtn');
-        const submitBtnText = document.getElementById('submitBtnText');
-        const submitSpinner = document.getElementById('submitSpinner');
+        const nextBtn = document.getElementById('nextBtn');
         const errorEl = document.getElementById('inputError');
 
         // 数字のみ入力
@@ -703,7 +720,7 @@ class SurveyApp {
 
             const value = input.value.trim();
             const isValid = this.validateInput(value, question.validation);
-            submitBtn.disabled = !isValid;
+            nextBtn.disabled = !isValid;
 
             if (value && !isValid) {
                 errorEl.textContent = question.validation.errorMessage;
@@ -716,26 +733,54 @@ class SurveyApp {
         });
 
         input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !submitBtn.disabled) {
-                submitBtn.click();
+            if (e.key === 'Enter' && !nextBtn.disabled) {
+                nextBtn.click();
             }
         });
 
-        submitBtn.addEventListener('click', async () => {
+        nextBtn.addEventListener('click', () => {
             const value = input.value.trim();
             this.state.setAnswer(question.id, value);
-
-            // ローディング表示
-            submitBtn.disabled = true;
-            submitBtnText.textContent = '送信中...';
-            submitSpinner.classList.remove('hidden');
-
-            // ユーザー回答表示
             this.addUserResponse(value);
             this.removeInputUI();
+            this.advanceToNext();
+        });
 
-            // API送信
-            await this.submitForm();
+        input.focus();
+    }
+
+    setupEmailInput(question) {
+        const input = document.getElementById('textInput');
+        const nextBtn = document.getElementById('nextBtn');
+        const errorEl = document.getElementById('inputError');
+
+        input.addEventListener('input', () => {
+            const value = input.value.trim();
+            const isValid = this.validateInput(value, question.validation);
+            nextBtn.disabled = !isValid;
+
+            if (value && !isValid) {
+                errorEl.textContent = question.validation.errorMessage;
+                errorEl.classList.remove('hidden');
+                input.classList.add('input-field--error');
+            } else {
+                errorEl.classList.add('hidden');
+                input.classList.remove('input-field--error');
+            }
+        });
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !nextBtn.disabled) {
+                nextBtn.click();
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            const value = input.value.trim();
+            this.state.setAnswer(question.id, value);
+            this.addUserResponse(value);
+            this.removeInputUI();
+            this.advanceToNext();
         });
 
         input.focus();

@@ -33,7 +33,7 @@ const PREFECTURES = {
 };
 
 // ===============================
-// 看護師向け質問フロー（9問）
+// 看護師向け質問フロー（10問）
 // ===============================
 const QUESTIONS = [
     // Q1: 保有資格 → ヘッダー「資格」
@@ -93,7 +93,7 @@ const QUESTIONS = [
         autoAdvance: false,
         saveAs: '郵便番号'
     },
-    // Q7: お名前 → ヘッダー「本名」
+    // Q6: お名前 → ヘッダー「本名」
     {
         id: 'name',
         type: 'text',
@@ -107,7 +107,7 @@ const QUESTIONS = [
         autoAdvance: false,
         saveAs: '本名'
     },
-    // Q8: 生年月日 → ヘッダー「生年月日」
+    // Q7: 生年月日 → ヘッダー「生年月日」
     {
         id: 'birthday',
         type: 'date',
@@ -115,7 +115,7 @@ const QUESTIONS = [
         autoAdvance: false,
         saveAs: '生年月日'
     },
-    // Q9: 携帯電話番号 → ヘッダー「電話番号」
+    // Q8: 携帯電話番号 → ヘッダー「電話番号」
     {
         id: 'phone',
         type: 'tel',
@@ -128,6 +128,20 @@ const QUESTIONS = [
         },
         autoAdvance: false,
         saveAs: '電話番号'
+    },
+    // Q9: メールアドレス → ヘッダー「メール」
+    {
+        id: 'email',
+        type: 'email',
+        message: 'メールアドレスを教えてください📧\n（求人情報のお届けに使用します）',
+        placeholder: '例：hanako@example.com',
+        validation: {
+            required: true,
+            pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+            errorMessage: '正しいメールアドレスを入力してください'
+        },
+        autoAdvance: false,
+        saveAs: 'メール'
     },
     // Q10: 希望最低年収 → ヘッダー「希望最低年収」
     {
