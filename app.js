@@ -652,7 +652,6 @@ class SurveyApp {
         const screen = this.diagnosisScreen;
         screen.innerHTML = `
             <div class="diagnosis-result">
-                <div class="diagnosis-result__icon">🎉</div>
                 <h2 class="diagnosis-result__title">診断完了！</h2>
                 <p class="diagnosis-result__message">
                     「<strong>${priorityLabel}</strong> × <strong>${areaName}</strong>」<br>
@@ -666,7 +665,6 @@ class SurveyApp {
                 <a href="${calendarUrl}" class="booking-cta" target="_blank" rel="noopener">
                     面談を予約する
                 </a>
-
                 <p class="booking-cta__note">
                     ＼無理な勧誘は一切ありません／<br>
                     「まずは情報収集だけ」という方も大歓迎です。
