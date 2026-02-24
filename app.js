@@ -16,7 +16,7 @@ const CONFIG = {
     // 次の質問への遅延（ms）
     NEXT_QUESTION_DELAY: 600,
     // カレンダー予約URL
-    CALENDAR_URL: 'https://anocari-calendar.pages.dev'
+    CALENDAR_URL: 'https://nijikango-calendar.pages.dev'
 };
 
 // ===============================
@@ -663,23 +663,14 @@ class SurveyApp {
                     <strong>LINEのトーク画面</strong>でお待ちください！
                 </div>
 
-                <div class="diagnosis-result__divider"></div>
-
-                <p class="diagnosis-result__cta-text">
-                    気になる求人はありましたか？<br>
-                    今なら、5分ほどの「スキマ時間通話」で、<br>
-                    さらに条件に合う非公開求人を個別にご紹介できます！
-                </p>
+                <a href="${calendarUrl}" class="booking-cta" target="_blank" rel="noopener">
+                    面談を予約する
+                </a>
 
                 <p class="booking-cta__note">
                     ＼無理な勧誘は一切ありません／<br>
-                    「まずは情報収集だけ」という方も大歓迎です。<br>
-                    下記のカレンダーから、ご都合の良い5分間を選んでくださいね。
+                    「まずは情報収集だけ」という方も大歓迎です。
                 </p>
-
-                <a href="${calendarUrl}" class="booking-cta" target="_blank" rel="noopener">
-                    カレンダーから日時を選ぶ
-                </a>
             </div>
         `;
 
