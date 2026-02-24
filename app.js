@@ -630,11 +630,15 @@ class SurveyApp {
      * 診断結果画面を表示
      */
     showDiagnosisResult() {
-        // 進捗を100%に
-        this.progressFill.style.width = '100%';
-        this.progressText.innerHTML = `<span class="progress-number">4</span>/4`;
-
-        // チャットエリアを非表示
+        // ヘッダー・特典カード・ライブカウンター・プログレスバー・チャットを全て非表示
+        const header = document.querySelector('.header');
+        const statsSection = document.querySelector('.stats-section');
+        const liveCounter = document.querySelector('.live-counter');
+        const progressSection = document.querySelector('.progress-section');
+        if (header) header.classList.add('hidden');
+        if (statsSection) statsSection.classList.add('hidden');
+        if (liveCounter) liveCounter.classList.add('hidden');
+        if (progressSection) progressSection.classList.add('hidden');
         this.chatArea.classList.add('hidden');
 
         // 診断結果のコンテンツを動的に生成
