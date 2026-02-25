@@ -221,6 +221,44 @@ class UIComponents {
     }
 
     /**
+     * 都道府県セレクタ（エリアタブ + グリッド）
+     */
+    static createPrefectureSelector() {
+        const container = document.createElement('div');
+        container.className = 'options-container';
+
+        // エリアタブ
+        const tabs = document.createElement('div');
+        tabs.className = 'region-tabs';
+
+        const regions = Object.keys(PREFECTURES);
+        regions.forEach((region, index) => {
+            const tab = document.createElement('button');
+            tab.className = 'region-tab' + (index === 0 ? ' region-tab--active' : '');
+            tab.textContent = region;
+            tab.dataset.region = region;
+            tabs.appendChild(tab);
+        });
+        container.appendChild(tabs);
+
+        // 都道府県グリッド（初期表示: 関東）
+        const grid = document.createElement('div');
+        grid.className = 'prefecture-grid';
+        grid.id = 'prefectureGrid';
+
+        PREFECTURES[regions[0]].forEach(pref => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.textContent = pref;
+            btn.dataset.value = pref;
+            grid.appendChild(btn);
+        });
+        container.appendChild(grid);
+
+        return container;
+    }
+
+    /**
      * 複合型入力（資格＋働き方を1画面で選択）
      */
     static createCombinedInput(question) {
@@ -335,6 +373,12 @@ class SurveyApp {
                 inputElement = UIComponents.createPostalCodeInput(question.placeholder);
                 this.chatArea.appendChild(inputElement);
                 this.setupPostalCodeInput(question);
+                break;
+
+            case 'prefecture':
+                inputElement = UIComponents.createPrefectureSelector();
+                this.chatArea.appendChild(inputElement);
+                this.setupPrefectureSelect(question);
                 break;
 
             case 'combined':
@@ -476,6 +520,52 @@ class SurveyApp {
         });
 
         input.focus();
+    }
+
+    setupPrefectureSelect(question) {
+        const tabs = this.chatArea.querySelectorAll('.region-tab');
+        const grid = document.getElementById('prefectureGrid');
+
+        // タブ切り替え
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('region-tab--active'));
+                tab.classList.add('region-tab--active');
+
+                const region = tab.dataset.region;
+                grid.innerHTML = '';
+                PREFECTURES[region].forEach(pref => {
+                    const btn = document.createElement('button');
+                    btn.className = 'option-btn';
+                    btn.textContent = pref;
+                    btn.dataset.value = pref;
+                    grid.appendChild(btn);
+                });
+
+                this.setupPrefectureButtons(question);
+            });
+        });
+
+        this.setupPrefectureButtons(question);
+    }
+
+    setupPrefectureButtons(question) {
+        const buttons = document.getElementById('prefectureGrid').querySelectorAll('.option-btn');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const value = btn.dataset.value;
+                this.state.setAnswer(question.id, value);
+                this.sendPartialAnswer(question);
+
+                btn.classList.add('option-btn--selected');
+
+                setTimeout(() => {
+                    this.addUserResponse(value);
+                    this.removeInputUI();
+                    this.advanceToNext();
+                }, 150);
+            });
+        });
     }
 
     async lookupPostalCode(code, resultEl, addressEl) {
@@ -643,7 +733,7 @@ class SurveyApp {
 
         // 診断結果のコンテンツを動的に生成
         const priorityAnswer = this.state.getAnswer('priority') || '';
-        const areaName = this.state.resolvedAddress || '指定エリア';
+        const areaName = this.state.getAnswer('location') || this.state.resolvedAddress || '指定エリア';
 
         // Q1の回答に応じた表示テキスト
         let priorityLabel = '';
@@ -656,14 +746,15 @@ class SurveyApp {
         const screen = this.diagnosisScreen;
         screen.innerHTML = `
             <div class="diagnosis-result">
+                <div class="diagnosis-result__check-icon">&#10003;</div>
                 <h2 class="diagnosis-result__title">診断完了！</h2>
                 <p class="diagnosis-result__message">
-                    「<strong>${priorityLabel}</strong> × <strong>${areaName}</strong>」<br>
-                    の非公開求人を、こちらに<strong>3通</strong>お送りします。
+                    「<strong>${priorityLabel}</strong> × <strong>${areaName}</strong>」の<br>
+                    非公開求人をお送りします。
                 </p>
                 <div class="diagnosis-result__line-notice">
                     <span class="diagnosis-result__line-icon">💬</span>
-                    <strong>LINEのトーク画面</strong>でお待ちください！
+                    <span><strong>LINEのトーク画面</strong>でお待ちください！</span>
                 </div>
 
                 <a href="${calendarUrl}" class="booking-cta" target="_blank" rel="noopener">
