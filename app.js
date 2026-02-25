@@ -124,12 +124,6 @@ class SurveyState {
             }
         });
 
-        // 郵便番号→住所の自動補完
-        if (this.resolvedAddress) {
-            data.answers['住所'] = this.resolvedAddress;
-            data.answers['希望勤務地'] = this.resolvedAddress;
-        }
-
         // 流入経路タグ
         data.answers['流入経路'] = this.inflowTag;
 
@@ -660,11 +654,6 @@ class SurveyApp {
             } else {
                 answers[question.saveAs] = rawAnswer;
             }
-        }
-
-        if (question.id === 'postalCode' && this.state.resolvedAddress) {
-            answers['住所'] = this.state.resolvedAddress;
-            answers['希望勤務地'] = this.state.resolvedAddress;
         }
 
         const step = question.displayStep || (this.state.currentQuestionIndex + 1);
